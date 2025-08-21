@@ -1,4 +1,14 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+*.log
+
+# Build
 bin/
-obj/\m.vscode/
-*.db
-appsettings.Development.json
+obj/
+
+# Others
+*.dbmdl
+*.jfm
