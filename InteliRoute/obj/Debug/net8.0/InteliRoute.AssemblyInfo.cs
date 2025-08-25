@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("InteliRoute")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6c676aa0b838720818005f6bbe4d75c2427c236d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ef6828bbd448d2d9905cea622fac3a3669c73b40")]
 [assembly: System.Reflection.AssemblyProductAttribute("InteliRoute")]
 [assembly: System.Reflection.AssemblyTitleAttribute("InteliRoute")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

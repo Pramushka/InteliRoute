@@ -1,5 +1,102 @@
-﻿@*
-    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-*@
+﻿@model InteliRoute.Models.ViewModels.DashboardVm
 @{
+    ViewData["Title"] = "Dashboard";
+    var labels = Model.MonthlySeries.Keys.ToArray();
+    var values = Model.MonthlySeries.Values.ToArray();
+    var intentLabels = Model.IntentDistribution.Keys.ToArray();
+    var intentValues = Model.IntentDistribution.Values.ToArray();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Dashboard @if(Model.IsSuperAdmin){<small class="text-muted">(All Tenants)</small>} else {<small class="text-muted">(Tenant @Model.TenantId)</small>}</h4>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <div class="text-muted">Emails (30d)</div>
+      <div class="fs-3 fw-semibold">@Model.Total</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <div class="text-muted">Routed</div>
+      <div class="fs-3 fw-semibold">@Model.Routed</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <div class="text-muted">Triage</div>
+      <div class="fs-3 fw-semibold">@Model.Triage</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body">
+      <div class="text-muted">Failed</div>
+      <div class="fs-3 fw-semibold text-danger">@Model.Failed</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-7">
+    <div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between"><h6 class="mb-0">Monthly Emails</h6></div>
+      <canvas id="monthlyChart" height="140"></canvas>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card"><div class="card-body">
+      <div class="d-flex justify-content-between"><h6 class="mb-0">Intent (30 days)</h6></div>
+      <canvas id="intentChart" height="140"></canvas>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <h6 class="mb-2">Recent Emails</h6>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr>
+          <th style="width:18%">Received (UTC)</th>
+          <th style="width:24%">From</th>
+          <th>Subject</th>
+          <th style="width:12%">Intent</th>
+          <th style="width:12%">Status</th>
+        </tr></thead>
+        <tbody>
+        @foreach (var e in Model.Recent)
+        {
+            <tr>
+              <td>@e.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+              <td>@e.From</td>
+              <td class="text-truncate" style="max-width:420px">@e.Subject</td>
+              <td>@(e.PredictedIntent?.ToString() ?? "—")</td>
+              <td>@e.RouteStatus</td>
+            </tr>
+        }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+@section Scripts{
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script>
+    const monthLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(labels));
+    const monthValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(values));
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'bar',
+      data: { labels: monthLabels, datasets: [{ label: 'Emails', data: monthValues }] }
+    });
+
+    const intentLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(intentLabels));
+    const intentValues = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(intentValues));
+    new Chart(document.getElementById('intentChart'), {
+      type: 'doughnut',
+      data: { labels: intentLabels, datasets: [{ data: intentValues }] }
+    });
+  </script>
 }

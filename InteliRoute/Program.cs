@@ -4,6 +4,8 @@ using InteliRoute.DAL.Repositories.Implementations;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using InteliRoute.Services.Integrations;
+using InteliRoute.Background.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,13 +27,20 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 // ---- Repositories ----
 builder.Services.AddScoped<ITenantAdminRepository, TenantAdminRepository>();
+builder.Services.AddScoped<IEmailAnalyticsRepository, EmailAnalyticsRepository>();
+builder.Services.AddScoped<IMailboxRepository, MailboxRepository>();
+builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 // builder.Services.AddScoped<IEmailRepository, EmailRepository>();
 // builder.Services.AddScoped<IRuleRepository, RuleRepository>();
 // builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 // builder.Services.AddScoped<IMailboxRepository, MailboxRepository>();
 
-// ---- Background workers (optional; later) ----
-// builder.Services.AddHostedService<MailFetchWorker>();
+// Gmail options + client
+builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection("Gmail"));
+builder.Services.AddScoped<IGmailClient, GmailClient>();
+
+builder.Services.AddHostedService<MailFetchWorker>();
+
 
 // ---- Cookie authentication (no sessions) ----
 builder.Services
