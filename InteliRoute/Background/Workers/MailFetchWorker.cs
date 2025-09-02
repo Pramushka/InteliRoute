@@ -26,6 +26,7 @@ public class MailFetchWorker : BackgroundService
                 var gmail = scope.ServiceProvider.GetRequiredService<IGmailClient>();
 
                 var due = await mailboxes.GetActiveDueAsync(DateTime.UtcNow, stoppingToken);
+
                 foreach (var m in due)
                 {
                     try
@@ -44,7 +45,7 @@ public class MailFetchWorker : BackgroundService
                 _log.LogError(ex, "Worker loop error");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken); // global tick
+            await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         }
     }
 }

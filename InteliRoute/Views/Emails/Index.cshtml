@@ -1,0 +1,132 @@
+﻿@model InteliRoute.Models.ViewModels.EmailListVm
+@using InteliRoute.DAL.Entities
+@{
+    ViewData["Title"] = "Emails";
+}
+
+<div class="container py-4">
+    <h2 class="mb-3">Emails</h2>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Search</label>
+            <input name="Q" value="@Model.Filters.Q" class="form-control" placeholder="subject, from, to, snippet" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Status</label>
+            <select name="Status" class="form-select">
+                <option value="">(any)</option>
+                @foreach (var s in Enum.GetValues<RouteStatus>())
+                {
+                    <option value="@((int)s)" selected="@(Model.Filters.Status == s)">@s</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Mailbox</label>
+            <select name="MailboxId" class="form-select">
+                <option value="">(all)</option>
+                @foreach (var m in Model.Mailboxes)
+                {
+                    <option value="@m.Id" selected="@(Model.Filters.MailboxId == m.Id)">@m.Address</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Page size</label>
+            <select name="PageSize" class="form-select">
+                @foreach (var size in new[] { 10, 20, 50, 100 })
+                {
+                    <option value="@size" selected="@(Model.PageSize==size)">@size</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">From</label>
+            <input type="date" name="FromDate" value="@(Model.Filters.FromDate?.ToString("yyyy-MM-dd"))" class="form-control" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">To</label>
+            <input type="date" name="ToDate" value="@(Model.Filters.ToDate?.ToString("yyyy-MM-dd"))" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100">Filter</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:18%">From</th>
+                    <th>Subject</th>
+                    <th style="width:15%">Received (UTC)</th>
+                    <th style="width:10%">Status</th>
+                    <th style="width:8%" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items.Count == 0)
+                {
+                    <tr><td colspan="5" class="text-center text-muted">No emails found.</td></tr>
+                }
+                else
+                {
+                    foreach (var e in Model.Items)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold text-truncate" style="max-width: 220px;">@e.From</div>
+                                <div class="small text-muted text-truncate" style="max-width: 220px;">to @e.To</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold">@e.Subject</div>
+                                @if (!string.IsNullOrWhiteSpace(e.Snippet))
+                                {
+                                    <div class="small text-muted text-truncate" style="max-width: 600px;">@e.Snippet</div>
+                                }
+                            </td>
+                            <td>@e.ReceivedUtc.ToString("u")</td>
+                            <td><span class="badge bg-secondary">@e.RouteStatus</span></td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" asp-action="Details" asp-route-id="@e.Id">Open</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.PageCount > 1)
+    {
+        <nav class="mt-3">
+            <ul class="pagination pagination-sm">
+                @{
+                    int prev = Math.Max(1, Model.Page - 1);
+                    int next = Math.Min(Model.PageCount, Model.Page + 1);
+
+                    string link(int p) => Url.Action("Index", new
+                    {
+                        Q = Model.Filters.Q,
+                        Status = Model.Filters.Status,
+                        MailboxId = Model.Filters.MailboxId,
+                        FromDate = Model.Filters.FromDate?.ToString("yyyy-MM-dd"),
+                        ToDate = Model.Filters.ToDate?.ToString("yyyy-MM-dd"),
+                        Page = p,
+                        PageSize = Model.PageSize
+                    })!;
+                }
+                <li class="page-item @(Model.Page==1?"disabled":"")">
+                    <a class="page-link" href="@link(prev)">Prev</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Page @Model.Page of @Model.PageCount</span>
+                </li>
+                <li class="page-item @(Model.Page==Model.PageCount?"disabled":"")">
+                    <a class="page-link" href="@link(next)">Next</a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>

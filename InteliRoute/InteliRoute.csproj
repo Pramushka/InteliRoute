@@ -9,6 +9,7 @@
   <ItemGroup>
     <Folder Include="Controllers\Api\v1\" />
     <Folder Include="Models\Dtos\" />
+    <Folder Include="secrets\tokens\" />
   </ItemGroup>
 
   <ItemGroup>

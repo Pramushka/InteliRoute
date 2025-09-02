@@ -1,0 +1,44 @@
+﻿@model InteliRoute.Models.ViewModels.EmailDetailsVm
+@{
+    ViewData["Title"] = "Email";
+}
+
+<div class="container py-4">
+    <a asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back</a>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="fw-bold">@Model.Subject</div>
+            <div class="small text-muted">@Model.ReceivedUtc.ToString("u")</div>
+        </div>
+        <div class="card-body">
+            <div class="mb-2"><strong>From:</strong> @Model.From</div>
+            <div class="mb-2"><strong>To:</strong> @Model.To</div>
+            <div class="mb-2"><strong>Status:</strong> @Model.RouteStatus</div>
+            @if (Model.RoutedDepartmentId is not null)
+            {
+                <div class="mb-2"><strong>Routed Department Id:</strong> @Model.RoutedDepartmentId</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.RoutedEmail))
+            {
+                <div class="mb-2"><strong>Routed Email:</strong> @Model.RoutedEmail</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+            {
+                <div class="alert alert-warning">Error: @Model.ErrorMessage</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.Snippet))
+            {
+                <hr />
+                <div class="small text-muted">@Model.Snippet</div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(Model.BodyText))
+            {
+                <hr />
+                <pre class="mb-0" style="white-space:pre-wrap">@Model.BodyText</pre>
+            }
+        </div>
+    </div>
+</div>

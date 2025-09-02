@@ -22,70 +22,23 @@ namespace InteliRoute.DAL.Context
         {
             base.OnModelCreating(b);
 
-            // Table names (optional—EF will pluralize by default)
             b.Entity<Tenant>().ToTable("tenants");
+            b.Entity<TenantAdmin>().ToTable("tenant_admins");
             b.Entity<Department>().ToTable("departments");
             b.Entity<Mailbox>().ToTable("mailboxes");
             b.Entity<EmailItem>().ToTable("emails");
             b.Entity<EmailAttachment>().ToTable("email_attachments");
             b.Entity<Rule>().ToTable("rules");
             b.Entity<RouteEvent>().ToTable("route_events");
-            b.Entity<TenantAdmin>().ToTable("tenant_admins");
 
-
-            // Email unique constraint: (mailbox, external message id) 
-            b.Entity<EmailItem>()
-                .HasIndex(e => new { e.MailboxId, e.ExternalMessageId })
-                .IsUnique();
-
-            // Useful indexes
-            b.Entity<EmailItem>()
-                .HasIndex(e => new { e.TenantId, e.ReceivedUtc });
-
-            b.Entity<EmailItem>()
-                .HasIndex(e => e.RouteStatus);
-
-            b.Entity<Rule>()
-                .HasIndex(r => new { r.TenantId, r.Priority });
-
-            // Relationships
-            b.Entity<EmailItem>()
-                .HasOne(e => e.Tenant)
-                .WithMany()
-                .HasForeignKey(e => e.TenantId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            b.Entity<EmailItem>()
-                .HasOne(e => e.Mailbox)
-                .WithMany()
-                .HasForeignKey(e => e.MailboxId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            b.Entity<EmailItem>()
-                .HasOne(e => e.RoutedDepartment)
-                .WithMany()
-                .HasForeignKey(e => e.RoutedDepartmentId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            b.Entity<RouteEvent>()
-                .HasOne(x => x.EmailItem)
-                .WithMany(e => e.RouteEvents)
-                .HasForeignKey(x => x.EmailItemId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            b.Entity<RouteEvent>()
-                .HasOne(x => x.Rule)
-                .WithMany()
-                .HasForeignKey(x => x.RuleId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            b.Entity<Mailbox>().Property(x => x.Address).HasMaxLength(320);
-            b.Entity<Department>().Property(x => x.RoutingEmail).HasMaxLength(320);
-            b.Entity<EmailItem>().Property(x => x.ExternalMessageId).HasMaxLength(128);
-            b.Entity<EmailItem>().Property(x => x.ThreadId).HasMaxLength(128);
-            b.Entity<EmailItem>().Property(x => x.From).HasMaxLength(500);
-            b.Entity<EmailItem>().Property(x => x.To).HasMaxLength(500);
-            b.Entity<EmailItem>().Property(x => x.Subject).HasMaxLength(500);
+            // If your enums are int columns (as in the DDL), map conversions (optional in recent EF Core versions if already int):
+            b.Entity<Mailbox>().Property(x => x.FetchMode).HasConversion<int>();
+            b.Entity<EmailItem>().Property(x => x.PredictedIntent).HasConversion<int?>();
+            b.Entity<EmailItem>().Property(x => x.RouteStatus).HasConversion<int>();
+            b.Entity<Rule>().Property(x => x.ActionType).HasConversion<int>();
+            b.Entity<RouteEvent>().Property(x => x.ActionType).HasConversion<int>();
+            b.Entity<RouteEvent>().Property(x => x.Outcome).HasConversion<int>();
         }
+
     }
 }
