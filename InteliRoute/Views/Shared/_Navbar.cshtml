@@ -1,0 +1,98 @@
+﻿@using Microsoft.AspNetCore.Mvc.Rendering
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    // figure out route for active state
+    string Ctl() => (ViewContext.RouteData.Values["controller"]?.ToString() ?? "");
+    string Act() => (ViewContext.RouteData.Values["action"]?.ToString() ?? "");
+    string Active(string controller, string? action = null)
+        => string.Equals(Ctl(), controller, StringComparison.OrdinalIgnoreCase)
+           && (action is null || string.Equals(Act(), action, StringComparison.OrdinalIgnoreCase))
+           ? "active" : "";
+
+    // initials for avatar
+    string initials = "US";
+    var displayName = User?.Identity?.Name ?? "";
+    if (!string.IsNullOrWhiteSpace(displayName))
+    {
+        var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        initials = parts.Length >= 2
+            ? (char.ToUpperInvariant(parts[0][0]).ToString() + char.ToUpperInvariant(parts[1][0]))
+            : displayName.Substring(0, Math.Min(2, displayName.Length)).ToUpperInvariant();
+    }
+}
+<nav class="navbar">
+    <div class="nav-container">
+        <a asp-controller="Home" asp-action="Dashboard" class="nav-logo">InteliRoute</a>
+
+        <ul class="nav-menu" id="navMenu">
+            @if (User?.IsInRole("TenantAdmin") ?? false)
+            {
+                <li class="nav-item">
+                    <a asp-controller="Home" asp-action="Dashboard" class="nav-link @Active("Home","Dashboard")">Dashboard</a>
+                </li>
+
+                <li class="nav-item">
+                    <a asp-controller="Mailbox" asp-action="Setup" class="nav-link @Active("Mailbox","Setup")">Email Setup</a>
+                </li>
+
+                <li class="nav-item">
+                    <a asp-controller="Routing" asp-action="Setup" class="nav-link @Active("Routing","Setup")">Routing Setup</a>
+                </li>
+                <li class="nav-item">
+                    <a asp-controller="Emails" asp-action="Index" class="nav-link @Active("Emails","Index")">Email log</a>
+                </li>
+
+                <li class="nav-item nav-profile">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        <div class="profile-avatar" title="@displayName">@initials</div>
+                        <form asp-controller="Login" asp-action="Logout" method="post" style="margin:0">
+                            <button type="submit" class="nav-cta">Sign out</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Login" asp-action="Index" class="nav-cta">Sign in</a>
+                    }
+                </li>
+                
+            }
+           
+            @* Show only to SuperAdmins *@
+            @if (User?.IsInRole("SuperAdmin") ?? false)
+            {
+                <li class="nav-item">
+                    <a asp-controller="SuperAdmin" asp-action="Index" class="nav-link @Active("SuperAdmin","Index")">
+                        Manage tenants
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a asp-controller="SuperAdmin" asp-action="Logs" class="nav-link @Active("SuperAdmin","Logs")">
+                       Logs
+                    </a>
+                </li>
+
+                <li class="nav-item nav-profile">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        <div class="profile-avatar" title="@displayName">@initials</div>
+                        <form asp-controller="Login" asp-action="Logout" method="post" style="margin:0">
+                            <button type="submit" class="nav-cta">Sign out</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Login" asp-action="Index" class="nav-cta">Sign in</a>
+                    }
+                </li>
+            }
+  
+        </ul>
+
+        <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle navigation">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+    </div>
+</nav>

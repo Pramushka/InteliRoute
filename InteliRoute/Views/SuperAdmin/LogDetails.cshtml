@@ -1,0 +1,47 @@
+﻿@model InteliRoute.DAL.Entities.AppLog
+@{
+    ViewData["Title"] = "Log Details";
+}
+
+<h4 class="mb-3">Log Details</h4>
+
+<div class="card">
+    <div class="card-body">
+        <dl class="row">
+            <dt class="col-sm-2">Id</dt>
+            <dd class="col-sm-10">@Model.Id</dd>
+            <dt class="col-sm-2">Timestamp (UTC)</dt>
+            <dd class="col-sm-10">@Model.Timestamp.ToString("u")</dd>
+            <dt class="col-sm-2">Level</dt>
+            <dd class="col-sm-10">@Model.Level</dd>
+            <dt class="col-sm-2">Source</dt>
+            <dd class="col-sm-10">@Model.Source</dd>
+            <dt class="col-sm-2">TenantId</dt>
+            <dd class="col-sm-10">@Model.TenantId</dd>
+            <dt class="col-sm-2">MailboxId</dt>
+            <dd class="col-sm-10">@Model.MailboxId</dd>
+            <dt class="col-sm-2">EmailId</dt>
+            <dd class="col-sm-10">@Model.EmailId</dd>
+            <dt class="col-sm-2">Message</dt>
+            <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap">@Model.Message</pre></dd>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Exception))
+            {
+                <dt class="col-sm-2">Exception</dt>
+                <dd class="col-sm-10"><pre class="mb-0 text-danger" style="white-space:pre-wrap">@Model.Exception</pre></dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.Properties))
+            {
+                <dt class="col-sm-2">Properties</dt>
+                <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap">@Model.Properties</pre></dd>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.MessageTemplate))
+            {
+                <dt class="col-sm-2">Template</dt>
+                <dd class="col-sm-10"><pre class="mb-0" style="white-space:pre-wrap">@Model.MessageTemplate</pre></dd>
+            }
+        </dl>
+    </div>
+</div>
+
+<a class="btn btn-outline-secondary mt-3" href="@Url.Action("Logs","SuperAdmin")">Back</a>

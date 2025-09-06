@@ -1,0 +1,113 @@
+﻿@model InteliRoute.Models.ViewModels.RoutingSetupVm
+@{
+    ViewData["Title"] = "Routing Setup";
+    var enabledCount = Model.Departments.Count(d => d.Enabled);
+}
+
+<div class="container py-4">
+    <h2 class="mb-3">Routing Setup</h2>
+
+    @if (TempData["ok"] is string ok && !string.IsNullOrWhiteSpace(ok))
+    {
+        <div class="alert alert-success">@ok</div>
+    }
+    @if (TempData["err"] is string err && !string.IsNullOrWhiteSpace(err))
+    {
+        <div class="alert alert-danger">@err</div>
+    }
+
+    <div class="card">
+        <div class="card-header fw-bold">Departments</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:20%">Department</th>
+                            <th>Routing Email</th>
+                            <th class="text-end" style="width:160px;">Status</th>
+                            <th class="text-end" style="width:220px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model.Departments)
+                        {
+                            var isOther = d.Name.Equals("Other", StringComparison.OrdinalIgnoreCase);
+                            var canDisable = d.Enabled && !isOther && enabledCount > 2; // pre-empt UI; server still enforces
+
+                            <tr>
+                                <td class="fw-semibold">@d.Name</td>
+
+                                <td>
+                                    <form asp-action="SaveEmail" method="post" class="d-flex gap-2">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="name" value="@d.Name" />
+                                        <input type="email"
+                                               name="routingEmail"
+                                               value="@d.RoutingEmail"
+                                               class="form-control"
+                                               placeholder="department@company.com"
+                                        @(d.Enabled ? null : "disabled") />
+                                        <button class="btn btn-outline-secondary"
+                                                type="submit"
+                                        @(d.Enabled ? null : "disabled")>
+                                            Save
+                                        </button>
+                                    </form>
+                                </td>
+
+                                <td class="text-end">
+                                    @if (d.Enabled)
+                                    {
+                                        <span class="badge bg-success">Enabled</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Disabled</span>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    <form asp-action="Toggle" method="post" class="d-inline">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@d.Id" />
+                                        <input type="hidden" name="name" value="@d.Name" />
+                                        <input type="hidden" name="enable" value="@(d.Enabled ? "false" : "true")" />
+
+                                        @if (d.Enabled)
+                                        {
+                                            if (isOther || !canDisable)
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" disabled
+                                                        title="At least 'Other' + one more department must remain enabled.">
+                                                    Disable
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger">Disable</button>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-success">Enable</button>
+                                        }
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-3 text-muted small">
+                Rules: <strong>‘Other’ must always be enabled</strong>, and you must keep <strong>at least one additional department enabled</strong>.
+                Enable a department first, then set its routing email.
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

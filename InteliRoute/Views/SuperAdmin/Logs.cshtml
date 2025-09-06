@@ -1,0 +1,166 @@
+﻿@model InteliRoute.Models.ViewModels.LogsIndexVm
+@{
+    ViewData["Title"] = "Application Logs";
+
+    string linkPage(int p) => Url.Action("Logs", new
+    {
+        DateFrom = Model.Filter.DateFrom?.ToString("yyyy-MM-dd"),
+        DateTo = Model.Filter.DateTo?.ToString("yyyy-MM-dd"),
+        Level = Model.Filter.Level,
+        TenantId = Model.Filter.TenantId,
+        MailboxId = Model.Filter.MailboxId,
+        EmailId = Model.Filter.EmailId,
+        HasException = Model.Filter.HasException,
+        Text = Model.Filter.Text,
+        Page = p,
+        PageSize = Model.Filter.PageSize
+    })!;
+}
+
+<div class="container py-4">
+    <h2 class="mb-3">Application Logs</h2>
+
+    <!-- Use Tag Helpers so selected/values bind correctly -->
+    <form method="get" asp-action="Logs" class="row g-2 align-items-end mb-3">
+        <!-- Row 1 -->
+        <div class="col-md-2">
+            <label asp-for="Filter.DateFrom" class="form-label">From</label>
+            <input asp-for="Filter.DateFrom" type="date" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Filter.DateTo" class="form-label">To</label>
+            <input asp-for="Filter.DateTo" type="date" class="form-control" />
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Filter.Level" class="form-label">Level</label>
+            <select asp-for="Filter.Level" class="form-select">
+                @{
+                    var levels = new[] { "All", "Verbose", "Debug", "Information", "Warning", "Error", "Fatal" };
+                    foreach (var lvl in levels)
+                    {
+                        <option value="@lvl">@lvl</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Filter.HasException" class="form-label">Has Exception</label>
+            <select asp-for="Filter.HasException" class="form-select">
+                <option value="">(any)</option>
+                <option value="true">only with</option>
+                <option value="false">only without</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label asp-for="Filter.PageSize" class="form-label">Page size</label>
+            <select asp-for="Filter.PageSize" class="form-select">
+                @foreach (var size in new[] { 25, 50, 100, 200 })
+                {
+                    <option value="@size">@size</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&nbsp;</label>
+            <button class="btn btn-primary w-100">Filter</button>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="col-md-3">
+            <label asp-for="Filter.TenantId" class="form-label">Tenant</label>
+            <select asp-for="Filter.TenantId" class="form-select">
+                <option value="">(any)</option>
+                @foreach (var t in Model.Tenants)
+                {
+                    <option value="@t.Id">@t.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.MailboxId" class="form-label">Mailbox Id</label>
+            <input asp-for="Filter.MailboxId" type="number" class="form-control" placeholder="(any)" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.EmailId" class="form-label">Email Id</label>
+            <input asp-for="Filter.EmailId" type="number" class="form-control" placeholder="(any)" />
+        </div>
+        <div class="col-md-3">
+            <label asp-for="Filter.Text" class="form-label">Message contains</label>
+            <input asp-for="Filter.Text" type="text" class="form-control" placeholder="search message text..." />
+        </div>
+
+        <!-- Reset to first page whenever user re-filters -->
+        <input type="hidden" name="Page" value="1" />
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th style="width:18%">Timestamp (UTC)</th>
+                    <th style="width:10%">Level</th>
+                    <th style="width:16%">Source</th>
+                    <th>Message</th>
+                    <th style="width:8%" class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Rows.Count == 0)
+                {
+                    <tr><td colspan="8" class="text-center text-muted">No logs found.</td></tr>
+                }
+                else
+                {
+                    foreach (var r in Model.Rows)
+                    {
+                        var preview = r.Message?.Length > 140 ? r.Message.Substring(0, 140) + "…" : r.Message;
+                        <tr>
+                            <td>@r.Timestamp.ToString("u")</td>
+                            <td>
+                                @if (string.Equals(r.Level, "Error", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(r.Level, "Fatal", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-danger">@r.Level</span>
+                                }
+                                else if (string.Equals(r.Level, "Warning", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span class="badge bg-warning text-dark">@r.Level</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">@r.Level</span>
+                                }
+                            </td>
+                            <td>@(r.Source ?? "—")</td>
+                            <td class="text-truncate" style="max-width:640px">@preview</td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" asp-action="LogDetails" asp-route-id="@r.Id">Open</a>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.PageCount > 1)
+    {
+        <nav class="mt-3">
+            <ul class="pagination pagination-sm">
+                @{
+                    var prev = Math.Max(1, Model.Page - 1);
+                    var next = Math.Min(Model.PageCount, Model.Page + 1);
+                }
+                <li class="page-item @(Model.Page==1 ? "disabled" : "")">
+                    <a class="page-link" href="@linkPage(prev)">Prev</a>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">Page @Model.Page of @Model.PageCount</span>
+                </li>
+                <li class="page-item @(Model.Page==Model.PageCount ? "disabled" : "")">
+                    <a class="page-link" href="@linkPage(next)">Next</a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>

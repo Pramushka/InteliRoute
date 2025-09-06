@@ -12,3 +12,26 @@ obj/
 # Others
 *.dbmdl
 *.jfm
+appsettings.json
+appsettings.*.json
+secrets/
+InteliRoute/secrets/
+**/secrets/
+logs/
+**/obj/
+**/bin/
+.vscode/
+InteliRoute/secrets/
+**/secrets/
+appsettings.json
+appsettings.*.json
+logs/
+**/obj/
+**/bin/
+.vs/
+.vscode/
+InteliRoute/secrets/
+**/secrets/
+appsettings.json
+appsettings.*.json
+!config-samples/**
