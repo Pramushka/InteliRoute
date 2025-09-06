@@ -34,3 +34,4 @@ InteliRoute/secrets/
 **/secrets/
 appsettings.json
 appsettings.*.json
+!config-samples/**
