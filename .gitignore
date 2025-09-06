@@ -21,3 +21,12 @@ logs/
 **/obj/
 **/bin/
 .vscode/
+InteliRoute/secrets/
+**/secrets/
+appsettings.json
+appsettings.*.json
+logs/
+**/obj/
+**/bin/
+.vs/
+.vscode/
