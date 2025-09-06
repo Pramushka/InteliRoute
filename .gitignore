@@ -30,3 +30,7 @@ logs/
 **/bin/
 .vs/
 .vscode/
+InteliRoute/secrets/
+**/secrets/
+appsettings.json
+appsettings.*.json
