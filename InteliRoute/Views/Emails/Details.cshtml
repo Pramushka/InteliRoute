@@ -2,6 +2,23 @@
 @{
     ViewData["Title"] = "Email";
 }
+<style>
+    .email-body img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .email-body table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .email-body blockquote {
+        margin: .5rem 1rem;
+        padding-left: .75rem;
+        border-left: 3px solid #ddd;
+    }
+</style>
 
 <div class="container py-4">
     <a asp-action="Index" class="btn btn-sm btn-outline-secondary mb-3">&larr; Back</a>
@@ -15,9 +32,10 @@
             <div class="mb-2"><strong>From:</strong> @Model.From</div>
             <div class="mb-2"><strong>To:</strong> @Model.To</div>
             <div class="mb-2"><strong>Status:</strong> @Model.RouteStatus</div>
-            @if (Model.RoutedDepartmentId is not null)
+
+            @if (!string.IsNullOrWhiteSpace(Model.RoutedDepartmentName))
             {
-                <div class="mb-2"><strong>Routed Department Id:</strong> @Model.RoutedDepartmentId</div>
+                <div class="mb-2"><strong>Routed Department:</strong> @Model.RoutedDepartmentName</div>
             }
             @if (!string.IsNullOrWhiteSpace(Model.RoutedEmail))
             {
@@ -34,7 +52,12 @@
                 <div class="small text-muted">@Model.Snippet</div>
             }
 
-            @if (!string.IsNullOrWhiteSpace(Model.BodyText))
+            @if (!string.IsNullOrWhiteSpace(Model.BodyHtmlSanitized))
+            {
+                <hr />
+                <div class="email-body">@Html.Raw(Model.BodyHtmlSanitized)</div>
+            }
+            else if (!string.IsNullOrWhiteSpace(Model.BodyText))
             {
                 <hr />
                 <pre class="mb-0" style="white-space:pre-wrap">@Model.BodyText</pre>

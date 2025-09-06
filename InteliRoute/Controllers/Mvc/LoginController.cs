@@ -93,15 +93,17 @@ public class LoginController : Controller
         => string.Equals(userOrEmail.Trim(), DevUserOrEmail, StringComparison.OrdinalIgnoreCase)
            && password == DevPassword;
 
+    // LoginController.cs
     private static List<Claim> BuildClaims(int id, string username, string email, int tenantId, string role)
         => new()
-        {
-            new Claim(ClaimTypes.NameIdentifier, id.ToString()),
-            new Claim(ClaimTypes.Name, username),
-            new Claim(ClaimTypes.Email, email),
-            new Claim("tenant_id", tenantId.ToString()),
-            new Claim(ClaimTypes.Role, role),
-        };
+    {
+    new Claim(ClaimTypes.NameIdentifier, id.ToString()),
+    new Claim(ClaimTypes.Name, username),
+    new Claim(ClaimTypes.Email, email),
+    new Claim("tenant", tenantId.ToString()),  
+    new Claim(ClaimTypes.Role, role),
+    };
+
 
     private async Task SignInAsync(IEnumerable<Claim> claims, bool remember)
     {

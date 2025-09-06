@@ -151,6 +151,10 @@
               "target": "Package",
               "version": "[1.70.0.3833, )"
             },
+            "HtmlSanitizer": {
+              "target": "Package",
+              "version": "[9.0.886, )"
+            },
             "Microsoft.EntityFrameworkCore": {
               "target": "Package",
               "version": "[9.0.8, )"
@@ -174,6 +178,14 @@
             "Serilog.Sinks.Console": {
               "target": "Package",
               "version": "[6.0.0, )"
+            },
+            "Serilog.Sinks.MariaDB": {
+              "target": "Package",
+              "version": "[1.0.1, )"
+            },
+            "Serilog.Sinks.MySQL": {
+              "target": "Package",
+              "version": "[5.0.0, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",

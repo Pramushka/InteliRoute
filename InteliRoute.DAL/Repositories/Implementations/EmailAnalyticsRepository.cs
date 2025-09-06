@@ -10,9 +10,10 @@ public class EmailAnalyticsRepository : IEmailAnalyticsRepository
     private readonly AppDbContext _db;
     public EmailAnalyticsRepository(AppDbContext db) => _db = db;
 
-    private IQueryable<EmailItem> Scope(int? tenantId)
-        => tenantId is null ? _db.Emails.AsNoTracking()
-                            : _db.Emails.AsNoTracking().Where(e => e.TenantId == tenantId.Value);
+    private IQueryable<EmailItem> Scope(int? tenantId) =>
+        tenantId is null
+            ? _db.Emails.AsNoTracking()
+            : _db.Emails.AsNoTracking().Where(e => e.TenantId == tenantId.Value);
 
     public async Task<DashboardTotals> GetTotalsAsync(int? tenantId, DateTime? sinceUtc = null, CancellationToken ct = default)
     {
@@ -37,7 +38,6 @@ public class EmailAnalyticsRepository : IEmailAnalyticsRepository
             .Select(g => new { Key = $"{g.Key.Year:D4}-{g.Key.Month:D2}", Count = g.Count() })
             .ToListAsync(ct);
 
-        // ensure missing months have 0
         var result = new Dictionary<string, int>();
         for (int i = months - 1; i >= 0; i--)
         {
@@ -48,24 +48,45 @@ public class EmailAnalyticsRepository : IEmailAnalyticsRepository
         return result;
     }
 
-    public async Task<IDictionary<string, int>> GetIntentDistributionAsync(int? tenantId, DateTime? sinceUtc = null, CancellationToken ct = default)
+    // Convenience overload used by HomeController; delegates to the strong-typed one
+    public Task<IDictionary<string, int>> GetIntentDistributionAsync(int? tenantId, DateTime? sinceUtc = null, CancellationToken ct = default)
+        => GetIntentDistributionAsync(tenantId, sinceUtc ?? DateTime.UtcNow.AddDays(-30), ct);
+
+    // Department-style distribution (RoutedDepartment.Name, else Spam, else Other)
+    public async Task<IDictionary<string, int>> GetIntentDistributionAsync(int? tenantId, DateTime sinceUtc, CancellationToken ct)
     {
-        var since = sinceUtc ?? DateTime.UtcNow.AddDays(-30);
-        var q = Scope(tenantId).Where(e => e.ReceivedUtc >= since);
+        var query = Scope(tenantId).Where(e => e.ReceivedUtc >= sinceUtc);
 
-        var data = await q
-            .GroupBy(e => e.PredictedIntent.HasValue ? e.PredictedIntent.Value.ToString() : "Unknown")
-            .Select(g => new { Intent = g.Key, Count = g.Count() })
-            .ToListAsync(ct);
+        // EF will LEFT JOIN RoutedDepartment because we reference it in the projection
+        var dict = await query
+            .Select(e => new
+            {
+                Label = e.RoutedDepartment != null && !string.IsNullOrEmpty(e.RoutedDepartment.Name)
+                            ? e.RoutedDepartment.Name
+                            : (e.PredictedIntent == Intent.Spam ? "Spam" : "Other")
+            })
+            .GroupBy(x => x.Label)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
 
-        return data.ToDictionary(x => x.Intent, x => x.Count);
+        return dict;
     }
 
     public async Task<IReadOnlyList<EmailItem>> GetRecentEmailsAsync(int? tenantId, int take = 10, CancellationToken ct = default)
     {
-        var q = Scope(tenantId)
+        var since = DateTime.UtcNow.AddDays(-30);
+
+        var q = _db.Emails                      // <<-- FIX: Emails (not EmailItems)
+            .AsNoTracking()
+            .Where(e => e.ReceivedUtc >= since);
+
+        if (tenantId.HasValue)
+            q = q.Where(e => e.TenantId == tenantId.Value);
+
+        return await q
             .OrderByDescending(e => e.ReceivedUtc)
-            .Take(take);
-        return await q.ToListAsync(ct);
+            .Take(take)
+            .Include(e => e.RoutedDepartment)   // ensure name is populated
+            .ToListAsync(ct);
     }
 }

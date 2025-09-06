@@ -15,4 +15,6 @@ public interface IEmailAnalyticsRepository
     Task<IDictionary<string, int>> GetIntentDistributionAsync(int? tenantId, DateTime? sinceUtc = null, CancellationToken ct = default);
 
     Task<IReadOnlyList<EmailItem>> GetRecentEmailsAsync(int? tenantId, int take = 10, CancellationToken ct = default);
+    Task<IDictionary<string, int>> GetIntentDistributionAsync(int? tenantId, DateTime sinceUtc, CancellationToken ct);
+
 }

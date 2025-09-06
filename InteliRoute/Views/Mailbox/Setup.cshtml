@@ -15,7 +15,7 @@
 }
 
 <div class="card mb-4">
-    <div class="card-header">Add mailbox & grant Gmail consent</div>
+    <div class="card-header">Add mailbox &amp; grant Gmail consent</div>
     <div class="card-body">
         <form asp-action="GrantConsent" method="post" class="row g-3">
             @Html.AntiForgeryToken()
@@ -28,6 +28,9 @@
                 <button type="submit" class="btn btn-dark">Grant Consent</button>
             </div>
         </form>
+        <div class="small text-muted mt-2">
+            Only mailboxes that complete Google consent will appear below.
+        </div>
     </div>
 </div>
 
@@ -36,7 +39,7 @@
     <div class="card-body p-0">
         @if (Model.Mailboxes == null || Model.Mailboxes.Count == 0)
         {
-            <div class="p-3 text-muted">No mailboxes yet. Add one above.</div>
+            <div class="p-3 text-muted">No connected mailboxes yet.</div>
         }
         else
         {
@@ -48,7 +51,7 @@
                             <th>Status</th>
                             <th style="width:280px;">Frequency</th>
                             <th>Last sync (UTC)</th>
-                            <th class="text-end" style="width:260px;">Actions</th>
+                            <th class="text-end" style="width:340px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,26 +74,62 @@
                                         @Html.AntiForgeryToken()
                                         <input type="hidden" name="mailboxId" value="@box.Id" />
                                         <select name="minutes" class="form-select">
-                                            <option value="1" selected="@(box.PollIntervalSec==60)">Every 1 minute</option>
-                                            <option value="5" selected="@(box.PollIntervalSec==300)">Every 5 minutes</option>
-                                            <option value="15" selected="@(box.PollIntervalSec==900)">Every 15 minutes</option>
-                                            <option value="30" selected="@(box.PollIntervalSec==1800)">Every 30 minutes</option>
-                                            <option value="60" selected="@(box.PollIntervalSec==3600)">Every 1 hour</option>
+                                            @if (box.PollIntervalSec == 60)
+                                            {
+                                                <option value="1" selected>Every 1 minute</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="1">Every 1 minute</option>
+                                            }
+                                            @if (box.PollIntervalSec == 300)
+                                            {
+                                                <option value="5" selected>Every 5 minutes</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="5">Every 5 minutes</option>
+                                            }
+                                            @if (box.PollIntervalSec == 900)
+                                            {
+                                                <option value="15" selected>Every 15 minutes</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="15">Every 15 minutes</option>
+                                            }
+                                            @if (box.PollIntervalSec == 1800)
+                                            {
+                                                <option value="30" selected>Every 30 minutes</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="30">Every 30 minutes</option>
+                                            }
+                                            @if (box.PollIntervalSec == 3600)
+                                            {
+                                                <option value="60" selected>Every 1 hour</option>
+                                            }
+                                            else
+                                            {
+                                                <option value="60">Every 1 hour</option>
+                                            }
                                         </select>
                                         <button type="submit" class="btn btn-outline-secondary">Save</button>
                                     </form>
                                 </td>
                                 <td>@(box.LastSyncUtc?.ToString("u") ?? "—")</td>
                                 <td class="text-end">
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <form asp-action="ManualFetch" method="post">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="mailboxId" value="@box.Id" />
-                                            <button type="submit" class="btn btn-outline-primary">Manual Fetch</button>
-                                        </form>
-
+                                    <div class="d-flex justify-content-end flex-wrap gap-2">
                                         @if (box.IsActive)
                                         {
+                                            <!-- Only show Manual Fetch for ACTIVE mailbox -->
+                                            <form asp-action="ManualFetch" method="post">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="mailboxId" value="@box.Id" />
+                                                <button type="submit" class="btn btn-outline-primary">Manual Fetch</button>
+                                            </form>
+
                                             <form asp-action="Disable" method="post">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="mailboxId" value="@box.Id" />
@@ -99,7 +138,12 @@
                                         }
                                         else
                                         {
-                                            <span class="text-muted small d-inline-flex align-items-center">Disabled</span>
+                                            <!-- Disabled: NO Manual Fetch button; show only Enable (exclusive) -->
+                                            <form asp-action="Enable" method="post" title="Enable this mailbox and disable others">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="mailboxId" value="@box.Id" />
+                                                <button type="submit" class="btn btn-outline-success">Enable (exclusive)</button>
+                                            </form>
                                         }
                                     </div>
                                 </td>

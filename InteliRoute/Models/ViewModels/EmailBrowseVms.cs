@@ -52,6 +52,8 @@ public sealed class EmailDetailsVm
     public DateTime ReceivedUtc { get; set; }
     public RouteStatus RouteStatus { get; set; }
     public int? RoutedDepartmentId { get; set; }
+    public string? RoutedDepartmentName { get; set; }
+    public string? BodyHtmlSanitized { get; set; }
     public string? RoutedEmail { get; set; }
     public string? ErrorMessage { get; set; }
 }

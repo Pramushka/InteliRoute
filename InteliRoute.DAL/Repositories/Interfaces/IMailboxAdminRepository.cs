@@ -14,5 +14,7 @@ namespace InteliRoute.DAL.Repositories.Interfaces
         Task<Mailbox> UpsertByAddressAsync(int tenantId, string email, CancellationToken ct = default);
         Task SetActiveAsync(int tenantId, int mailboxId, bool isActive, CancellationToken ct = default);
         Task SetPollIntervalAsync(int tenantId, int mailboxId, int pollIntervalSec, CancellationToken ct = default);
+        Task SetActiveExclusiveAsync(int tenantId, int mailboxId, CancellationToken ct);
+
     }
 }

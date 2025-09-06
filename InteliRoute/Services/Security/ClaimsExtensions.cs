@@ -9,7 +9,24 @@ public static class ClaimsExtensions
 
     public static int? GetTenantId(this ClaimsPrincipal user)
     {
-        var claim = user.FindFirst("tenant_id")?.Value;
-        return int.TryParse(claim, out var id) ? id : null;
+        if (user is null) return null;
+
+        // Accept any of these names
+        var raw =
+            user.FindFirst("tenant")?.Value ??
+            user.FindFirst("tenant_id")?.Value ??
+            user.FindFirst("TenantId")?.Value;
+
+        return int.TryParse(raw, out var id) ? id : (int?)null;
+    }
+
+    // Optional helper if you like explicit checks:
+    public static bool TryGetTenantId(this ClaimsPrincipal user, out int tenantId)
+    {
+        tenantId = 0;
+        var id = user.GetTenantId();
+        if (id is null) return false;
+        tenantId = id.Value;
+        return true;
     }
 }

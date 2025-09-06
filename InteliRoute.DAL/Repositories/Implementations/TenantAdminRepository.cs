@@ -77,4 +77,58 @@ public class TenantAdminRepository : ITenantAdminRepository
         _db.Set<TenantAdmin>().Update(e);
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task UpdateProfileAsync(
+      int adminId,
+      string username,
+      string email,
+      string role,
+      bool isActive,
+      CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(username)) throw new ArgumentException("Username is required.", nameof(username));
+        if (string.IsNullOrWhiteSpace(email)) throw new ArgumentException("Email is required.", nameof(email));
+
+        username = username.Trim();
+        email = email.Trim();
+        role = string.IsNullOrWhiteSpace(role) ? "TenantAdmin" : role.Trim();
+
+        var admin = await _db.Set<TenantAdmin>()
+                             .FirstOrDefaultAsync(a => a.Id == adminId, ct)
+                    ?? throw new KeyNotFoundException($"Admin id {adminId} not found.");
+
+        var tenantId = admin.TenantId;
+
+        // Uniqueness checks (case-insensitive) within the same tenant
+        var unameLower = username.ToLower();
+        var emailLower = email.ToLower();
+
+        var usernameTaken = await _db.Set<TenantAdmin>()
+            .AnyAsync(a => a.TenantId == tenantId
+                           && a.Id != adminId
+                           && a.Username.ToLower() == unameLower, ct);
+
+        if (usernameTaken)
+            throw new InvalidOperationException("Username is already in use for this tenant.");
+
+        var emailTaken = await _db.Set<TenantAdmin>()
+            .AnyAsync(a => a.TenantId == tenantId
+                           && a.Id != adminId
+                           && a.Email.ToLower() == emailLower, ct);
+
+        if (emailTaken)
+            throw new InvalidOperationException("Email is already in use for this tenant.");
+
+        // Apply updates
+        admin.Username = username;
+        admin.Email = email;
+        admin.Role = role;
+        admin.IsActive = isActive;
+
+        // If you track updates:
+        // admin.UpdatedUtc = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+    }
 }
+

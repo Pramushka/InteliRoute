@@ -1,12 +1,15 @@
-﻿using InteliRoute.DAL.Repositories.Interfaces;
+﻿using Ganss.Xss;
+using InteliRoute.DAL.Repositories.Interfaces;
 using InteliRoute.Models.ViewModels;
 using InteliRoute.Services.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
+using System.Text.RegularExpressions;
 
 namespace InteliRoute.Controllers.Mvc;
 
-[Authorize(Roles = "TenantAdmin,SuperAdmin")]
+[Authorize(Roles = "TenantAdmin")]
 public sealed class EmailsController : Controller
 {
     private readonly IEmailBrowseRepository _emails;
@@ -74,6 +77,32 @@ public sealed class EmailsController : Controller
         var e = await _emails.GetByIdAsync(tenantId.Value, id, ct);
         if (e is null) return NotFound();
 
+        // If your DAL has a BodyHtml field, prefer it; else try to detect HTML in BodyText.
+        string? rawHtml = null;
+
+        // Prefer an HTML body if your repo exposes one (pseudo: e.BodyHtml)
+        // rawHtml = e.BodyHtml;
+
+        if (string.IsNullOrWhiteSpace(rawHtml))
+        {
+            // Heuristic: if BodyText looks like HTML, treat as HTML; else convert plaintext -> HTML
+            if (!string.IsNullOrWhiteSpace(e.BodyText) &&
+                Regex.IsMatch(e.BodyText, @"<\s*([a-z]+)(\s|>)", RegexOptions.IgnoreCase))
+            {
+                rawHtml = e.BodyText;
+            }
+            else if (!string.IsNullOrWhiteSpace(e.BodyText))
+            {
+                // Convert plaintext safely to HTML with <br> for line breaks
+                var encoded = WebUtility.HtmlEncode(e.BodyText);
+                rawHtml = encoded.Replace("\r\n", "<br>").Replace("\n", "<br>").Replace("\r", "<br>");
+            }
+        }
+
+        // Sanitize
+        var sanitizer = HttpContext.RequestServices.GetRequiredService<HtmlSanitizer>();
+        var safeHtml = rawHtml is not null ? sanitizer.Sanitize(rawHtml) : null;
+
         var vm = new EmailDetailsVm
         {
             Id = e.Id,
@@ -82,13 +111,16 @@ public sealed class EmailsController : Controller
             Subject = e.Subject,
             Snippet = e.Snippet,
             BodyText = e.BodyText,
+            BodyHtmlSanitized = safeHtml,             
             ReceivedUtc = e.ReceivedUtc,
             RouteStatus = e.RouteStatus,
             RoutedDepartmentId = e.RoutedDepartmentId,
+            RoutedDepartmentName = e.RoutedDepartment?.Name,
             RoutedEmail = e.RoutedEmail,
             ErrorMessage = e.ErrorMessage
         };
 
-        return View(vm); // Views/Emails/Details.cshtml
+        return View(vm);
     }
+
 }

@@ -55,4 +55,27 @@ public class MailboxAdminRepository : IMailboxAdminRepository
         _db.Mailboxes.Update(e);
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task SetActiveExclusiveAsync(int tenantId, int mailboxId, CancellationToken ct)
+    {
+        // Ensure target exists and belongs to tenant
+        var target = await _db.Set<Mailbox>()
+                              .FirstOrDefaultAsync(m => m.TenantId == tenantId && m.Id == mailboxId, ct);
+        if (target is null)
+            throw new KeyNotFoundException("Mailbox not found.");
+
+        // Transaction to keep state consistent
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+
+        // Disable all current actives for this tenant
+        var all = await _db.Set<Mailbox>()
+                           .Where(m => m.TenantId == tenantId)
+                           .ToListAsync(ct);
+
+        foreach (var m in all)
+            m.IsActive = m.Id == mailboxId; // only the target becomes active
+
+        await _db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
 }

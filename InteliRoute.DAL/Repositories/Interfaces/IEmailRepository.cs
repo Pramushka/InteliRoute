@@ -7,4 +7,6 @@ public interface IEmailRepository
     Task<bool> ExistsAsync(int mailboxId, string externalMessageId, CancellationToken ct = default);
     Task<int> AddAsync(EmailItem email, CancellationToken ct = default);
     Task AddRangeAsync(IEnumerable<EmailItem> emails, CancellationToken ct = default);
+    Task<List<EmailItem>> GetForRoutingAsync(int take, CancellationToken ct);
+    Task UpdateAsync(EmailItem email, CancellationToken ct);
 }

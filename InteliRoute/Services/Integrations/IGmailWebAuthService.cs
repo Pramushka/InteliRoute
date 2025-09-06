@@ -7,5 +7,7 @@
 
         // Exchange the code for tokens and save them under secrets/tokens/tenant-{id}/mailbox-{id}/
         Task CompleteConsentAsync(int tenantId, int mailboxId, string email, string code, string redirectAbs, CancellationToken ct);
+        Task<bool> HasTokenAsync(int tenantId, int mailboxId, string address, CancellationToken ct);
+
     }
 }

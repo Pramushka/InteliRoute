@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace InteliRoute.Controllers.Mvc;
 
-[Authorize(Roles = "TenantAdmin,SuperAdmin")] // keep or narrow to TenantAdmin only
+[Authorize(Roles = "TenantAdmin")]
 public class MailboxController : Controller
 {
     private readonly IMailboxAdminRepository _adminRepo;
@@ -27,22 +27,26 @@ public class MailboxController : Controller
         var tenantId = User.GetTenantId()!.Value;
         var boxes = await _adminRepo.GetByTenantAsync(tenantId, ct);
 
+        // Keep only mailboxes that have a token (consent completed).
+        // No DB schema change: we ask the auth service if a token exists.
+        var checks = await Task.WhenAll(boxes.Select(async b =>
+            new { Box = b, Connected = await _auth.HasTokenAsync(tenantId, b.Id, b.Address, ct) }));
+
+        var connected = checks.Where(x => x.Connected).Select(x => x.Box).OrderBy(b => b.Address).ToList();
+
         var vm = new MailboxSetupVm
         {
-            Mailboxes = boxes
-                .OrderBy(b => b.Address)
-                .Select(b => new MailboxRowVm
-                {
-                    Id = b.Id,
-                    Address = b.Address,
-                    IsActive = b.IsActive,
-                    PollIntervalSec = b.PollIntervalSec,
-                    LastSyncUtc = b.LastSyncUtc
-                })
-                .ToList()
+            Mailboxes = connected.Select(b => new MailboxRowVm
+            {
+                Id = b.Id,
+                Address = b.Address,
+                IsActive = b.IsActive,
+                PollIntervalSec = b.PollIntervalSec,
+                LastSyncUtc = b.LastSyncUtc
+            }).ToList()
         };
 
-        return View(vm); 
+        return View(vm);
     }
 
     [HttpPost]
@@ -55,44 +59,61 @@ public class MailboxController : Controller
         var tenantId = User.GetTenantId()!.Value;
         var mailbox = await _adminRepo.UpsertByAddressAsync(tenantId, vm.Email, ct);
 
-        // Google requires absolute redirect
         var redirectAbs = Url.Action(nameof(OAuthCallback), "Mailbox", null, Request.Scheme)!;
 
-        // Our service auto-embeds state "tenantId:mailboxId"
         var url = await _auth.GetConsentUrlAsync(tenantId, mailbox.Id, vm.Email, redirectAbs, ct);
         return Redirect(url.AbsoluteUri);
     }
 
-    // Google will hit this unauthenticated; we allow it and then redirect back to Setup (which requires auth)
+    // Google calls this without auth; we complete consent and redirect back to Setup.
     [HttpGet, AllowAnonymous]
     public async Task<IActionResult> OAuthCallback(string? code, string? state, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
             return BadRequest("Missing code/state");
 
-        // expected state: "{tenantId}:{mailboxId}"
         var parts = state.Split(':');
         if (parts.Length != 2 || !int.TryParse(parts[0], out var tenantId) || !int.TryParse(parts[1], out var mailboxId))
             return BadRequest("Invalid state");
 
         var redirectAbs = Url.Action(nameof(OAuthCallback), "Mailbox", null, Request.Scheme)!;
 
-        // We saved token under tenant/mailbox folder and use the mailbox address as user key
         var mbox = await _adminRepo.GetByIdAsync(tenantId, mailboxId, ct);
         if (mbox is null) return RedirectToAction(nameof(Setup));
 
+        // If this throws, consent failed -> nothing is shown on Setup (since we only show connected).
         await _auth.CompleteConsentAsync(tenantId, mailboxId, mbox.Address, code, redirectAbs, ct);
+
+        // Optional: auto-activate this mailbox exclusively. If you prefer manual activation, comment this out.
+        await _adminRepo.SetActiveExclusiveAsync(tenantId, mailboxId, ct);
+
         TempData["ok"] = $"Consent saved for {mbox.Address}.";
         return RedirectToAction(nameof(Setup));
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetFrequency(int mailboxId, int minutes, CancellationToken ct)
+    public async Task<IActionResult> Enable(int mailboxId, CancellationToken ct)
     {
         var tenantId = User.GetTenantId()!.Value;
-        await _adminRepo.SetPollIntervalAsync(tenantId, mailboxId, Math.Max(1, minutes) * 60, ct);
-        TempData["ok"] = "Fetch frequency saved.";
+        var m = await _adminRepo.GetByIdAsync(tenantId, mailboxId, ct);
+        if (m is null)
+        {
+            TempData["err"] = "Mailbox not found.";
+            return RedirectToAction(nameof(Setup));
+        }
+
+        // Ensure consent completed; otherwise don't allow enabling.
+        if (!await _auth.HasTokenAsync(tenantId, mailboxId, m.Address, ct))
+        {
+            TempData["err"] = "This mailbox has not completed Google consent.";
+            return RedirectToAction(nameof(Setup));
+        }
+
+        // Enforce single active mailbox (exclusive using only IsActive).
+        await _adminRepo.SetActiveExclusiveAsync(tenantId, mailboxId, ct);
+
+        TempData["ok"] = $"Enabled {m.Address}. Other mailboxes disabled.";
         return RedirectToAction(nameof(Setup));
     }
 
@@ -108,6 +129,16 @@ public class MailboxController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetFrequency(int mailboxId, int minutes, CancellationToken ct)
+    {
+        var tenantId = User.GetTenantId()!.Value;
+        await _adminRepo.SetPollIntervalAsync(tenantId, mailboxId, Math.Max(1, minutes) * 60, ct);
+        TempData["ok"] = "Fetch frequency saved.";
+        return RedirectToAction(nameof(Setup));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> ManualFetch(int mailboxId, CancellationToken ct)
     {
         var tenantId = User.GetTenantId()!.Value;
@@ -115,6 +146,13 @@ public class MailboxController : Controller
         if (m is null)
         {
             TempData["err"] = "Mailbox not found.";
+            return RedirectToAction(nameof(Setup));
+        }
+
+        // Defense-in-depth: Only allow manual fetch when active
+        if (!m.IsActive)
+        {
+            TempData["err"] = "Mailbox is disabled. Enable it first.";
             return RedirectToAction(nameof(Setup));
         }
 

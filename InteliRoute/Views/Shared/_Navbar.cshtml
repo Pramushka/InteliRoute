@@ -25,18 +25,39 @@
         <a asp-controller="Home" asp-action="Dashboard" class="nav-logo">InteliRoute</a>
 
         <ul class="nav-menu" id="navMenu">
-            <li class="nav-item">
-                <a asp-controller="Home" asp-action="Dashboard" class="nav-link @Active("Home","Dashboard")">Dashboard</a>
-            </li>
+            @if (User?.IsInRole("TenantAdmin") ?? false)
+            {
+                <li class="nav-item">
+                    <a asp-controller="Home" asp-action="Dashboard" class="nav-link @Active("Home","Dashboard")">Dashboard</a>
+                </li>
 
-            <li class="nav-item">
-                <a asp-controller="Mailbox" asp-action="Setup" class="nav-link @Active("Mailbox","Setup")">Email Setup</a>
-            </li>
+                <li class="nav-item">
+                    <a asp-controller="Mailbox" asp-action="Setup" class="nav-link @Active("Mailbox","Setup")">Email Setup</a>
+                </li>
 
-            <li class="nav-item">
-                <a asp-controller="Routing" asp-action="Setup" class="nav-link @Active("Routing","Setup")">Routing Setup</a>
-            </li>
+                <li class="nav-item">
+                    <a asp-controller="Routing" asp-action="Setup" class="nav-link @Active("Routing","Setup")">Routing Setup</a>
+                </li>
+                <li class="nav-item">
+                    <a asp-controller="Emails" asp-action="Index" class="nav-link @Active("Emails","Index")">Email log</a>
+                </li>
 
+                <li class="nav-item nav-profile">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        <div class="profile-avatar" title="@displayName">@initials</div>
+                        <form asp-controller="Login" asp-action="Logout" method="post" style="margin:0">
+                            <button type="submit" class="nav-cta">Sign out</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Login" asp-action="Index" class="nav-cta">Sign in</a>
+                    }
+                </li>
+                
+            }
+           
             @* Show only to SuperAdmins *@
             @if (User?.IsInRole("SuperAdmin") ?? false)
             {
@@ -45,25 +66,27 @@
                         Manage tenants
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a asp-controller="SuperAdmin" asp-action="Logs" class="nav-link @Active("SuperAdmin","Logs")">
+                       Logs
+                    </a>
+                </li>
+
+                <li class="nav-item nav-profile">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        <div class="profile-avatar" title="@displayName">@initials</div>
+                        <form asp-controller="Login" asp-action="Logout" method="post" style="margin:0">
+                            <button type="submit" class="nav-cta">Sign out</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Login" asp-action="Index" class="nav-cta">Sign in</a>
+                    }
+                </li>
             }
-
-            <li class="nav-item">
-                <a asp-controller="Emails" asp-action="Index" class="nav-link @Active("Emails","Index")">Email log</a>
-            </li>
-
-            <li class="nav-item nav-profile">
-                @if (User?.Identity?.IsAuthenticated ?? false)
-                {
-                    <div class="profile-avatar" title="@displayName">@initials</div>
-                    <form asp-controller="Login" asp-action="Logout" method="post" style="margin:0">
-                        <button type="submit" class="nav-cta">Sign out</button>
-                    </form>
-                }
-                else
-                {
-                    <a asp-controller="Login" asp-action="Index" class="nav-cta">Sign in</a>
-                }
-            </li>
+  
         </ul>
 
         <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle navigation">

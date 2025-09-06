@@ -20,5 +20,7 @@ public interface ITenantAdminRepository
     Task SetActiveAsync(int id, bool isActive, CancellationToken ct = default);
 
     Task ResetPasswordHashAsync(int id, string passwordHash, CancellationToken ct = default);
+    Task UpdateProfileAsync(int adminId, string username, string email, string role, bool isActive, CancellationToken ct);
+
 
 }

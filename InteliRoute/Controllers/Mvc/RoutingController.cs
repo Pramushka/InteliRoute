@@ -6,16 +6,15 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace InteliRoute.Controllers.Mvc;
 
-[Authorize(Roles = "TenantAdmin,SuperAdmin")]
+[Authorize(Roles = "TenantAdmin")]
 public class RoutingController : Controller
 {
-    // your single source of truth
     private readonly IDepartmentAdminRepository _deps;
 
-    // the canonical list to always show
+    private const string OtherName = "Other";
     private static readonly string[] DefaultDepartments =
     {
-        "HR", "IT", "Finance", "Support", "Sales", "Legal", "Operations", "Other"
+        "HR", "IT", "Finance", "Support", "Sales", "Legal", "Operations", OtherName
     };
 
     public RoutingController(IDepartmentAdminRepository deps) => _deps = deps;
@@ -26,12 +25,10 @@ public class RoutingController : Controller
         var tenantId = User.GetTenantId()!.Value;
         var rows = await _deps.GetByTenantAsync(tenantId, ct);
 
-        // map by lower-name for quick lookups
         var byName = rows.ToDictionary(r => r.Name.Trim().ToLowerInvariant(), r => r);
-
         var vm = new RoutingSetupVm();
 
-        // show all predefined depts
+        // Always render the canonical set
         foreach (var name in DefaultDepartments)
         {
             if (byName.TryGetValue(name.ToLowerInvariant(), out var d))
@@ -48,7 +45,7 @@ public class RoutingController : Controller
             {
                 vm.Departments.Add(new DepartmentRowVm
                 {
-                    Id = 0,                // not created yet
+                    Id = 0,
                     Name = name,
                     RoutingEmail = "",
                     Enabled = false
@@ -56,7 +53,7 @@ public class RoutingController : Controller
             }
         }
 
-        // (optional) surface any custom departments already in DB (non-default names)
+        // Show any custom departments (non-default) that exist in DB
         foreach (var d in rows)
         {
             if (!DefaultDepartments.Any(n => n.Equals(d.Name, StringComparison.OrdinalIgnoreCase)))
@@ -74,7 +71,9 @@ public class RoutingController : Controller
         return View(vm);
     }
 
-    // Enable/Disable. If Id==0 and enable==true => create via UpsertAsync.
+    // Enable/Disable with business rules:
+    // - Other cannot be disabled.
+    // - After any change there must be >= 2 enabled departments AND at least one non-Other enabled.
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Toggle(int id, string name, bool enable, CancellationToken ct)
     {
@@ -83,29 +82,80 @@ public class RoutingController : Controller
 
         var tenantId = User.GetTenantId()!.Value;
 
+        // Build current state
+        var rows = await _deps.GetByTenantAsync(tenantId, ct);
+        var map = rows.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+
+        // Create a simulated "after" state set (name -> enabled)
+        var enabled = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        // Seed with current DB rows
+        foreach (var r in rows)
+            enabled[r.Name] = r.Enabled;
+
+        // Include missing default departments (treated as currently disabled)
+        foreach (var dn in DefaultDepartments)
+            if (!enabled.ContainsKey(dn)) enabled[dn] = false;
+
+        // Apply requested change
+        if (enable)
+        {
+            enabled[name] = true;
+        }
+        else
+        {
+            // Guard: Other cannot be disabled
+            if (name.Equals(OtherName, StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["err"] = "The fallback department 'Other' cannot be disabled.";
+                return RedirectToAction(nameof(Setup));
+            }
+
+            // If it doesn't exist yet (id==0) and user asked to disable — no change,
+            // but apply rule checks against current state anyway
+            if (enabled.ContainsKey(name))
+                enabled[name] = false;
+        }
+
+        // Validate business rules on the simulated state
+        var totalEnabled = enabled.Count(kv => kv.Value);
+        var otherEnabled = enabled.TryGetValue(OtherName, out var oe) && oe;
+        var nonOtherEnabled = enabled.Any(kv => kv.Value && !kv.Key.Equals(OtherName, StringComparison.OrdinalIgnoreCase));
+
+        if (!otherEnabled)
+        {
+            TempData["err"] = "The fallback department 'Other' must remain enabled.";
+            return RedirectToAction(nameof(Setup));
+        }
+
+        if (totalEnabled < 2 || !nonOtherEnabled)
+        {
+            TempData["err"] = "At least two departments must be enabled: 'Other' plus one additional department.";
+            return RedirectToAction(nameof(Setup));
+        }
+
+        // Commit the change
         if (enable)
         {
             if (id == 0)
-            {
-                // create & enable with empty email
-                _ = await _deps.UpsertAsync(tenantId, name, "", ct);
-            }
+                _ = await _deps.UpsertAsync(tenantId, name, routingEmail: "", ct);
             else
-            {
                 await _deps.SetEnabledAsync(tenantId, id, true, ct);
-            }
+
+            TempData["ok"] = $"Enabled {name}.";
         }
         else
         {
             if (id != 0)
                 await _deps.SetEnabledAsync(tenantId, id, false, ct);
-            // if id==0 and disable => nothing to do (row doesn’t exist yet)
+
+            TempData["ok"] = $"Disabled {name}.";
         }
 
         return RedirectToAction(nameof(Setup));
     }
 
-    // Save/update routing email (Upsert keeps Enabled=true for existing rows and creates if needed)
+    // Save/update routing email (keeps Enabled=true on upsert)
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveEmail(string name, string routingEmail, CancellationToken ct)
     {
@@ -114,10 +164,9 @@ public class RoutingController : Controller
 
         var tenantId = User.GetTenantId()!.Value;
 
-        // NOTE: UpsertAsync in your repo sets Enabled=true. We only render this form when Enabled,
-        // so this won’t accidentally enable a disabled one.
         _ = await _deps.UpsertAsync(tenantId, name, routingEmail ?? "", ct);
 
+        TempData["ok"] = $"Routing email saved for {name}.";
         return RedirectToAction(nameof(Setup));
     }
 }

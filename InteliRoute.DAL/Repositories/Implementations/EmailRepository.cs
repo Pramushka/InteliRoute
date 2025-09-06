@@ -26,4 +26,21 @@ public class EmailRepository : IEmailRepository
         _db.Emails.AddRange(emails);
         await _db.SaveChangesAsync(ct);
     }
+
+    // Implementations/EmailRepository.cs
+    public async Task<List<EmailItem>> GetForRoutingAsync(int take, CancellationToken ct)
+    {
+        return await _db.Emails
+            .Where(e => e.RouteStatus == RouteStatus.New)
+            .OrderBy(e => e.ReceivedUtc)
+            .Take(take)
+            .ToListAsync(ct);
+    }
+
+    public async Task UpdateAsync(EmailItem email, CancellationToken ct)
+    {
+        _db.Emails.Update(email);
+        await _db.SaveChangesAsync(ct);
+    }
+
 }

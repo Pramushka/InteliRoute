@@ -4,6 +4,8 @@ using InteliRoute.Models.ViewModels;
 using InteliRoute.Services.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace InteliRoute.Controllers.Mvc;
 
@@ -12,11 +14,13 @@ public class SuperAdminController : Controller
 {
     private readonly ITenantMgmtRepository _tenants;
     private readonly ITenantAdminRepository _admins;
+    private readonly IAppLogRepository _logsRepo;
 
-    public SuperAdminController(ITenantMgmtRepository tenants, ITenantAdminRepository admins)
+    public SuperAdminController(ITenantMgmtRepository tenants, ITenantAdminRepository admins, IAppLogRepository logsRepo)
     {
         _tenants = tenants;
         _admins = admins;
+        _logsRepo = logsRepo;
     }
 
     [HttpGet]
@@ -69,12 +73,21 @@ public class SuperAdminController : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SelectTenant(int id, CancellationToken ct)
+    public async Task<IActionResult> UpdateTenantAdmin(UpdateTenantAdminVm vm, CancellationToken ct)
     {
-        return RedirectToAction(nameof(Index), new { tenantId = id });
+        if (!ModelState.IsValid)
+        {
+            TempData["err"] = "Please complete the admin fields.";
+            return RedirectToAction(nameof(Index), new { tenantId = vm.TenantId });
+        }
+
+        // Update profile
+        await _admins.UpdateProfileAsync(vm.Id, vm.Username, vm.Email, vm.Role, vm.IsActive, ct);
+
+        TempData["ok"] = "Admin updated.";
+        return RedirectToAction(nameof(Index), new { tenantId = vm.TenantId });
     }
 
-    // ---------- Tenants ----------
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateTenant([Bind(Prefix = "NewTenant")] NewTenantVm vm, CancellationToken ct)
     {
@@ -157,5 +170,66 @@ public class SuperAdminController : Controller
 
         TempData["ok"] = "Password reset.";
         return RedirectToAction(nameof(Index), new { tenantId = vm.TenantId });
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Logs([FromQuery] LogFilterVm filter, CancellationToken ct)
+    {
+        // Normalize: make DateTo inclusive → convert to exclusive upper bound (end-of-day + 1 tick)
+        DateTime? toExclusive = null;
+        if (filter.DateTo.HasValue)
+            toExclusive = filter.DateTo.Value.Date.AddDays(1);
+
+        var q = new AppLogQuery
+        {
+            DateFrom = filter.DateFrom?.Date,
+            DateTo = filter.DateTo.HasValue
+                      ? filter.DateTo.Value.Date.AddDays(1)
+                      : (DateTime?)null,
+            Level = string.IsNullOrWhiteSpace(filter.Level) ? "All" : filter.Level,
+            TenantId = filter.TenantId,
+            MailboxId = filter.MailboxId,
+            EmailId = filter.EmailId,
+            HasException = filter.HasException,
+            Text = filter.Text,
+            Page = filter.Page <= 0 ? 1 : filter.Page,
+            PageSize = filter.PageSize <= 0 ? 25 : filter.PageSize
+        };
+
+
+        var page = await _logsRepo.SearchAsync(q, ct);
+
+        var tenants = await _tenants.GetAllAsync(ct);
+        var vm = new LogsIndexVm
+        {
+            Filter = filter,
+            Rows = page.Items.Select(x => new LogRowVm
+            {
+                Id = x.Id,
+                Timestamp = x.Timestamp,
+                Level = x.Level,
+                Source = x.Source,
+                Message = x.Message,
+                TenantId = x.TenantId,
+                MailboxId = x.MailboxId,
+                EmailId = x.EmailId,
+                HasException = !string.IsNullOrEmpty(x.Exception)
+            }).ToList(),
+            Total = page.Total,
+            Page = page.Page,
+            PageSize = page.PageSize,
+            IsSuperAdmin = true,
+            Tenants = tenants.Select(t => new TenantChoiceVm { Id = t.Id, Name = t.Name }).ToList()
+        };
+
+        return View(vm);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> LogDetails(long id, CancellationToken ct)
+    {
+        var log = await _logsRepo.FindAsync(id, ct);
+        if (log == null) return NotFound();
+        return View(log);
     }
 }

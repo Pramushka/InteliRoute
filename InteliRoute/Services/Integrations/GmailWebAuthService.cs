@@ -1,6 +1,7 @@
 ﻿using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Util.Store;
+using Google.Protobuf.WellKnownTypes;
 using Microsoft.AspNetCore.WebUtilities; // <—
 using Microsoft.Extensions.Options;
 
@@ -12,7 +13,10 @@ namespace InteliRoute.Services.Integrations
         private readonly IWebHostEnvironment _env;
 
         public GmailWebAuthService(IOptions<GmailOptions> opt, IWebHostEnvironment env)
-        { _opt = opt.Value; _env = env; }
+        { 
+            _opt = opt.Value;
+            _env = env; 
+        }
 
         public Task<Uri> GetConsentUrlAsync(int tenantId, int mailboxId, string email, string redirectAbs, CancellationToken ct)
         {
@@ -36,9 +40,8 @@ namespace InteliRoute.Services.Integrations
             var (flow, _, _) = CreateFlow(tenantId, mailboxId, redirectAbs);
             _ = await flow.ExchangeCodeForTokenAsync(userId: email, code: code, redirectUri: redirectAbs, taskCancellationToken: ct);
         }
-
         private (GoogleAuthorizationCodeFlow flow, string tokenDir, string redirectUri)
-            CreateFlow(int tenantId, int mailboxId, string? overrideRedirect = null)
+              CreateFlow(int tenantId, int mailboxId, string? overrideRedirect = null)
         {
             var credPathTenant = Path.Combine(_env.ContentRootPath, _opt.CredentialsPathRoot, $"tenant-{tenantId}", "credentials.json");
             var credPathDefault = Path.Combine(_env.ContentRootPath, _opt.CredentialsPathRoot, "default", "credentials.json");
@@ -47,6 +50,7 @@ namespace InteliRoute.Services.Integrations
             if (!File.Exists(credPath))
                 throw new FileNotFoundException($"Missing Google API credentials at {credPathTenant} or {credPathDefault}");
 
+            // IMPORTANT: this is the directory FileDataStore writes to
             var tokenDir = Path.Combine(_env.ContentRootPath, _opt.TokenStoreRoot, $"tenant-{tenantId}", $"mailbox-{mailboxId}");
             Directory.CreateDirectory(tokenDir);
 
@@ -57,13 +61,12 @@ namespace InteliRoute.Services.Integrations
             {
                 ClientSecrets = secrets,
                 Scopes = _opt.Scopes,
-                DataStore = new FileDataStore(tokenDir, true)
+                DataStore = new FileDataStore(tokenDir, /*fullPath*/ true)
             });
 
             var redirect = overrideRedirect ?? "/Mailbox/OAuthCallback";
             return (flow, tokenDir, redirect);
         }
-
         // Replace or add a query parameter exactly once
         private static Uri SetQueryParam(Uri input, string key, string value)
         {
@@ -79,6 +82,32 @@ namespace InteliRoute.Services.Integrations
 
             var result = new Uri(QueryHelpers.AddQueryString(baseUrl, dict));
             return result;
+        }
+
+        public Task<bool> HasTokenAsync(int tenantId, int mailboxId, string address, CancellationToken ct)
+        {
+            // Use the SAME directory layout as CreateFlow() / FileDataStore
+            var tokenDir = Path.Combine(_env.ContentRootPath, _opt.TokenStoreRoot, $"tenant-{tenantId}", $"mailbox-{mailboxId}");
+
+            try
+            {
+                if (!Directory.Exists(tokenDir))
+                    return Task.FromResult(false);
+
+                // FileDataStore uses the key “Google.Apis.Auth.OAuth2.Responses.TokenResponse-{userId}”
+                // where userId == the 'email' you passed to ExchangeCodeForTokenAsync.
+                var byUserKey = Path.Combine(tokenDir, $"Google.Apis.Auth.OAuth2.Responses.TokenResponse-{address}");
+                if (File.Exists(byUserKey))
+                    return Task.FromResult(true);
+
+                // Fallback: any file in the token folder indicates we have tokens
+                var any = Directory.EnumerateFileSystemEntries(tokenDir).Any();
+                return Task.FromResult(any);
+            }
+            catch
+            {
+                return Task.FromResult(false);
+            }
         }
     }
 }
